@@ -147,6 +147,17 @@ function tryNumber(value) {
   return percent ? num / 100 : num;
 }
 
+function normalizeFieldName(value) {
+  return String(value || "")
+    .replace(/[（()）\s_-]/g, "")
+    .trim();
+}
+
+function findFieldByName(fields, target) {
+  const normalizedTarget = normalizeFieldName(target);
+  return fields.find((field) => normalizeFieldName(field) === normalizedTarget) || null;
+}
+
 function splitBlocks(rows) {
   const rawBlocks = [];
   let current = [];
@@ -432,15 +443,16 @@ function buildChartsHtml(table) {
   }
   const labels = table.rows.map((row) => row[table.weekField]);
   if (table.sheet.includes("采购数据统计") || table.title.includes("采购数据统计")) {
-    const combinedFields = ["采购合同个数", "采购单个数"];
-    const combinedAvailable = combinedFields.every((field) => table.numericFields.includes(field));
-    const remainingFields = table.numericFields.filter((field) => !combinedFields.includes(field));
+    const contractField = findFieldByName(table.numericFields, "采购合同个数");
+    const orderField = findFieldByName(table.numericFields, "采购单个数");
+    const combinedAvailable = !!contractField && !!orderField;
+    const remainingFields = table.numericFields.filter((field) => field !== contractField && field !== orderField);
     const charts = [];
     if (combinedAvailable) {
       charts.push(
         buildMultiLineChart(
           labels,
-          combinedFields.map((field) => ({
+          [contractField, orderField].map((field) => ({
             name: field,
             values: table.rows.map((row) => Number(row[field])).filter((value) => Number.isFinite(value))
           })),
