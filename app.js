@@ -1,7 +1,12 @@
-const NON_CHART_SHEETS = new Set(["填写说明", "效率提升", "仓储单位产出", "库存周转分析"]);
+const NON_CHART_SHEETS = new Set(["填写说明", "效率提升", "库存周转分析", "总结"]);
 const NON_KPI_SHEETS = new Set(["填写说明", "库存周转分析"]);
-const OVERVIEW_PRIORITY = ["采购数据统计", "Key-SKU断货统计", "议价数据统计"];
 const WRAP_COLUMNS = new Set(["本周进展", "填写要求", "备注说明"]);
+const OVERVIEW_GROUPS = [
+  { sheet: "采购数据统计", title: "采购数据统计", fields: ["采购合同个数", "采购单个数"] },
+  { sheet: "Key-SKU断货统计", title: "Key-SKU断货统计", fields: ["货号个数", "断货个数", "断货率"] },
+  { sheet: "议价数据统计", title: "议价数据统计", fields: [["议价合计（元）", "议价合计"]] },
+  { sheet: "订单数据", title: "订单数据", fields: [["新下单订单金额", "新下单金额"], ["待审核总订单金额", "待审核订单金额", "待审核总订单金额"]] }
+];
 
 const demoWorkbook = {
   workbookName: "周维度经营看板上传模板-new.xlsx",
@@ -101,6 +106,7 @@ const fileInput = document.getElementById("fileInput");
 const demoButton = document.getElementById("demoButton");
 const screenshotButton = document.getElementById("screenshotButton");
 const statusText = document.getElementById("statusText");
+const overviewSummary = document.getElementById("overviewSummary");
 const overviewGrid = document.getElementById("overviewGrid");
 const dashboardContent = document.getElementById("dashboardContent");
 
@@ -132,7 +138,13 @@ function formatChange(value, field) {
 
 function looksLikeWeek(text) {
   const sample = String(text || "").trim().toLowerCase();
-  return sample.includes("周") || sample.includes("week") || /^\d{1,2}[./-]\d{1,2}$/.test(sample) || /^\d{4}-w\d{1,2}$/.test(sample);
+  return sample.includes("周") ||
+    sample.includes("week") ||
+    sample.includes("月份") ||
+    sample === "月" ||
+    /^\d{1,2}[./-]\d{1,2}$/.test(sample) ||
+    /^\d{4}-w\d{1,2}$/.test(sample) ||
+    /^\d{4}-\d{1,2}$/.test(sample);
 }
 
 function tryNumber(value) {
@@ -163,6 +175,52 @@ function findFieldByKeywords(fields, keywords) {
     const normalized = normalizeFieldName(field);
     return keywords.every((keyword) => normalized.includes(normalizeFieldName(keyword)));
   }) || null;
+}
+
+function findFieldByAliases(fields, aliases) {
+  const list = Array.isArray(aliases) ? aliases : [aliases];
+  for (const alias of list) {
+    const field = findFieldByName(fields, alias);
+    if (field) return field;
+  }
+  return null;
+}
+
+function isOrderTable(table) {
+  return table.sheet === "订单数据" || table.title === "订单数据" || table.title.startsWith("订单数据-");
+}
+
+function buildSeries(table, field) {
+  const values = table.rows.map((row) => {
+    const value = Number(row[field]);
+    return Number.isFinite(value) ? value : null;
+  });
+  if (!values.some((value) => value !== null)) return null;
+  return { name: field, values };
+}
+
+function findExistingField(table, targets) {
+  for (const target of targets) {
+    const byName = findFieldByName(table.numericFields, target);
+    if (byName) return byName;
+  }
+  return null;
+}
+
+function buildConfiguredChart(table, title, fieldTargets, options = {}) {
+  const fields = fieldTargets
+    .map((target) => findExistingField(table, [target]))
+    .filter(Boolean);
+  if (!fields.length) return "";
+  const seriesList = fields
+    .map((field) => buildSeries(table, field))
+    .filter(Boolean);
+  if (!seriesList.length) return "";
+  const labels = table.rows.map((row) => row[table.weekField]);
+  if (seriesList.length === 1) {
+    return buildLineChart(labels, seriesList[0].values, title || seriesList[0].name, options);
+  }
+  return buildMultiLineChart(labels, seriesList, title, options);
 }
 
 function splitBlocks(rows) {
@@ -301,22 +359,62 @@ function computeWeeklyMetrics(table) {
 }
 
 function buildOverviewMetrics(workbook) {
-  return OVERVIEW_PRIORITY.flatMap((sheetName) => {
-    const table = workbook.tables.find((item) => item.sheet === sheetName);
-    if (!table) return [];
-    return computeWeeklyMetrics(table).slice(0, 2).map((metric) => ({
-      ...metric,
-      title: `${table.title} · ${metric.field}`
-    }));
-  });
+  return OVERVIEW_GROUPS.map((group) => {
+    const table = workbook.tables.find((item) => item.sheet === group.sheet || item.title === group.sheet);
+    if (!table || !table.weekField || !table.rows.length) return null;
+    const latest = table.rows[table.rows.length - 1];
+    const previous = table.rows.length > 1 ? table.rows[table.rows.length - 2] : null;
+    const metrics = group.fields.map((fieldName) => {
+      const field = findFieldByAliases(table.numericFields, fieldName);
+      if (!field) return null;
+      const latestValue = Number(latest[field]);
+      if (!Number.isFinite(latestValue)) return null;
+      const previousValue = previous ? Number(previous[field]) : null;
+      let delta = null;
+      if (Number.isFinite(previousValue)) {
+        if (String(field).includes("比例") || String(field).includes("率")) {
+          delta = latestValue - previousValue;
+        } else if (previousValue !== 0) {
+          delta = (latestValue - previousValue) / previousValue;
+        }
+      }
+      return { field, latestValue, delta };
+    }).filter(Boolean);
+    if (!metrics.length) return null;
+    return {
+      title: group.title,
+      week: latest[table.weekField],
+      metrics
+    };
+  }).filter(Boolean);
 }
 
-function buildLineChart(labels, values, title) {
+function extractOverviewSummary(workbook) {
+  const summaryTable = workbook.tables.find((item) => item.sheet === "总结" || item.title === "总结" || item.title === "经营总览");
+  if (!summaryTable) return "";
+  const summaryField =
+    findFieldByAliases(summaryTable.headers || [], ["本周小结", "总结", "描述", "描述性文字"]) ||
+    findFieldByAliases(Object.keys(summaryTable.rows[0] || {}), ["本周小结", "总结", "描述", "描述性文字"]);
+  if (summaryField) {
+    const latestRow = summaryTable.rows.filter((row) => !isEmpty(row[summaryField])).slice(-1)[0];
+    if (latestRow) return String(latestRow[summaryField]).trim();
+  }
+
+  const lines = summaryTable.rows
+    .map((row) => Object.values(row).filter((value) => !isEmpty(value)).map((value) => String(value).trim()))
+    .filter((values) => values.length === 1)
+    .map((values) => values[0])
+    .filter((text) => text !== "经营总览" && text !== "总结");
+
+  return lines.slice(-1)[0] || "";
+}
+
+function buildLineChart(labels, values, title, options = {}) {
   if (!labels.length || !values.length) {
     return `<div class="chart-card"><h3 class="chart-title">${title}</h3><div class="empty-state">暂无可绘制数据</div></div>`;
   }
-  const width = 420;
-  const height = 220;
+  const width = options.width || 420;
+  const height = options.height || 220;
   const left = 42;
   const right = 16;
   const top = 18;
@@ -338,7 +436,7 @@ function buildLineChart(labels, values, title) {
     return { y, text: tickValue.toLocaleString("zh-CN", { maximumFractionDigits: 2 }) };
   });
   return `
-    <div class="chart-card">
+    <div class="chart-card${options.cardClass ? ` ${options.cardClass}` : ""}">
       <h3 class="chart-title">${title}</h3>
       <svg class="svg-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${title}">
         ${yTicks.map((tick) => `<line class="grid" x1="${left}" y1="${tick.y}" x2="${width - right}" y2="${tick.y}"></line><text x="4" y="${tick.y + 4}">${tick.text}</text>`).join("")}
@@ -353,12 +451,12 @@ function buildLineChart(labels, values, title) {
   `;
 }
 
-function buildMultiLineChart(labels, seriesList, title) {
+function buildMultiLineChart(labels, seriesList, title, options = {}) {
   if (!labels.length || !seriesList.length) {
     return `<div class="chart-card"><h3 class="chart-title">${title}</h3><div class="empty-state">暂无可绘制数据</div></div>`;
   }
-  const width = 420;
-  const height = 220;
+  const width = options.width || 420;
+  const height = options.height || 220;
   const left = 42;
   const right = 16;
   const top = 18;
@@ -394,7 +492,7 @@ function buildMultiLineChart(labels, seriesList, title) {
   });
 
   return `
-    <div class="chart-card">
+    <div class="chart-card${options.cardClass ? ` ${options.cardClass}` : ""}">
       <h3 class="chart-title">${title}</h3>
       <svg class="svg-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${title}">
         ${yTicks.map((tick) => `<line class="grid" x1="${left}" y1="${tick.y}" x2="${width - right}" y2="${tick.y}"></line><text x="4" y="${tick.y + 4}">${tick.text}</text>`).join("")}
@@ -421,6 +519,13 @@ function buildMultiLineChart(labels, seriesList, title) {
 }
 
 function buildTableHtml(table) {
+  const wrapperClassNames = [];
+  const tableClassNames = [];
+  if (table.sheet === "仓储单位产出" || table.title === "仓储单位产出") {
+    tableClassNames.push("warehouse-table");
+    wrapperClassNames.push("warehouse-table-wrapper");
+  }
+  if (table.sheet === "库存周转分析" || table.title === "库存周转分析") tableClassNames.push("inventory-table");
   const headerHtml = table.headers.map((header) => {
     const wrapHeaderSheets = ["仓储单位产出", "库存周转分析", "采购数据统计"];
     const wrapHeader = wrapHeaderSheets.includes(table.sheet) || table.title.startsWith("订单数据-");
@@ -435,8 +540,8 @@ function buildTableHtml(table) {
   `).join("");
 
   return `
-    <div class="table-wrapper">
-      <table>
+    <div class="table-wrapper ${wrapperClassNames.join(" ")}">
+      <table class="${tableClassNames.join(" ")}">
         <thead><tr>${headerHtml}</tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
@@ -449,44 +554,41 @@ function buildChartsHtml(table) {
     return `<div class="empty-state">该模块按新模板不展示图表。</div>`;
   }
   const labels = table.rows.map((row) => row[table.weekField]);
-  if (table.sheet === "采购数据统计" || table.title === "采购数据统计" || table.title === "采购数据统计-1") {
-    const contractField =
-      findFieldByName(table.numericFields, "采购合同个数") ||
-      findFieldByKeywords(table.numericFields, ["采购", "合同", "个数"]);
-    const orderField =
-      findFieldByName(table.numericFields, "采购单个数") ||
-      findFieldByKeywords(table.numericFields, ["采购单", "个数"]) ||
-      findFieldByKeywords(table.numericFields, ["采购", "单个数"]);
-    const combinedAvailable = !!contractField && !!orderField;
-    const remainingFields = table.numericFields.filter((field) => {
-      return normalizeFieldName(field) !== normalizeFieldName(contractField) &&
-        normalizeFieldName(field) !== normalizeFieldName(orderField);
-    });
-    const charts = [];
-    if (combinedAvailable) {
-      charts.push(
-        buildMultiLineChart(
-          labels,
-          [contractField, orderField].map((field) => ({
-            name: field,
-            values: table.rows.map((row) => Number(row[field])).filter((value) => Number.isFinite(value))
-          })),
-          "采购合同个数与采购单个数趋势"
-        )
-      );
-    }
-    remainingFields.slice(0, 2).forEach((field) => {
-      const values = table.rows.map((row) => Number(row[field])).filter((value) => Number.isFinite(value));
-      charts.push(buildLineChart(labels, values, field));
-    });
-    return charts.join("");
+  const isPurchaseSheet = table.sheet === "采购数据统计" || table.title === "采购数据统计" || table.title === "采购数据统计-1";
+  const isOrderSheet = isOrderTable(table);
+  const isWarehouseSheet = table.sheet === "仓储单位产出" || table.title === "仓储单位产出";
+
+  if (isOrderSheet) {
+    return [
+      buildConfiguredChart(table, "新下单金额与待审核订单金额趋势", [
+        findFieldByAliases(table.numericFields, ["新下单订单金额", "新下单金额"]),
+        findFieldByAliases(table.numericFields, ["待审核总订单金额", "待审核订单金额", "待审核总订单金额"])
+      ].filter(Boolean), { cardClass: "chart-card-featured chart-card-order", width: 760, height: 280 })
+    ].filter(Boolean).join("");
+  }
+
+  if (isPurchaseSheet) {
+    return [
+      buildConfiguredChart(table, "采购合同个数与采购单个数趋势", ["采购合同个数", "采购单个数"]),
+      buildConfiguredChart(table, "销售采购单、直发采购单与直发采购单比例趋势", ["销售采购单个数", "直发采购单个数", "直发采购单比例"])
+    ].filter(Boolean).join("");
+  }
+
+  if (isWarehouseSheet) {
+    return [
+      buildConfiguredChart(table, "各仓每平米销售额趋势", ["主仓每平米销售额", "廊坊每平米销售额", "成都每平米销售额", "广州仓每平米销售额"]),
+      buildConfiguredChart(table, "各仓每平米毛利趋势", ["主仓每平米毛利", "廊坊每平米毛利", "成都每平米毛利", "广州仓每平米毛利"])
+    ].filter(Boolean).join("");
   }
   const chartFields = table.numericFields.slice(0, 4);
   if (!chartFields.length) {
     return `<div class="empty-state">当前表没有适合绘图的数值字段。</div>`;
   }
   return chartFields.map((field) => {
-    const values = table.rows.map((row) => Number(row[field])).filter((value) => Number.isFinite(value));
+    const values = table.rows.map((row) => {
+      const value = Number(row[field]);
+      return Number.isFinite(value) ? value : null;
+    });
     return buildLineChart(labels, values, field);
   }).join("");
 }
@@ -509,6 +611,36 @@ function buildMetricsSection(table) {
   if (!shouldShowKpi(table)) return "";
   const weeklyMetrics = computeWeeklyMetrics(table);
   if (!weeklyMetrics.length) return "";
+  if (isOrderTable(table)) {
+    const amountFields = [
+      findFieldByAliases(table.numericFields, ["新下单订单金额", "新下单金额"]),
+      findFieldByAliases(table.numericFields, ["待审核总订单金额", "待审核订单金额"])
+    ].filter(Boolean);
+    const countFields = [
+      findFieldByAliases(table.numericFields, ["新下单订单条数", "新下单条数"]),
+      findFieldByAliases(table.numericFields, ["待审核总订单条数", "待审核订单条数"])
+    ].filter(Boolean);
+    const selectedFields = [...amountFields, ...countFields];
+    const metrics = selectedFields.map((field) => weeklyMetrics.find((metric) => metric.field === field)).filter(Boolean);
+    return `
+      <div class="dashboard-block">
+        <h4 class="dashboard-block-title">指标卡片</h4>
+        <div class="order-kpi-layout">
+          ${metrics.map((metric, index) => {
+            const change = formatChange(metric.delta, metric.field);
+            const cardClass = index < amountFields.length ? "order-kpi-primary" : "order-kpi-secondary";
+            return `
+              <div class="kpi-card ${cardClass}">
+                <div class="kpi-title">${metric.field}</div>
+                <div class="kpi-value">${formatValue(metric.latestValue, metric.field)}</div>
+                <div class="kpi-change ${change.cls}">${metric.week} ${change.text}</div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  }
   return `
     <div class="dashboard-block">
       <h4 class="dashboard-block-title">指标卡片</h4>
@@ -528,41 +660,56 @@ function buildMetricsSection(table) {
 
 function buildChartsSection(table) {
   if (!shouldShowChart(table)) return "";
-  const labels = table.rows.map((row) => row[table.weekField]);
-  const chartFields = table.numericFields.slice(0, 4);
-  if (!chartFields.length) return "";
+  const chartsHtml = buildChartsHtml(table);
+  if (!chartsHtml || chartsHtml.includes("empty-state")) return "";
+  const chartGridClass = isOrderTable(table) ? "chart-grid chart-grid-featured" : "chart-grid";
   return `
     <div class="dashboard-block">
       <h4 class="dashboard-block-title">趋势图</h4>
-      <div class="chart-grid">${chartFields.map((field) => {
-        const values = table.rows.map((row) => Number(row[field])).filter((value) => Number.isFinite(value));
-        return buildLineChart(labels, values, field);
-      }).join("")}</div>
+      <div class="${chartGridClass}">${chartsHtml}</div>
     </div>
   `;
 }
 
 function renderOverview() {
-  const metrics = buildOverviewMetrics(state.workbook);
-  if (!metrics.length) {
+  const summaryText = extractOverviewSummary(state.workbook);
+  if (summaryText) {
+    overviewSummary.hidden = false;
+    overviewSummary.innerHTML = summaryText.split("\n").map((line) => `<p class="overview-summary-line">${line}</p>`).join("");
+  } else {
+    overviewSummary.hidden = true;
+    overviewSummary.innerHTML = "";
+  }
+
+  const groups = buildOverviewMetrics(state.workbook);
+  if (!groups.length) {
     overviewGrid.innerHTML = `<div class="empty-state">当前没有识别到可汇总的周维度 KPI。</div>`;
     return;
   }
-  overviewGrid.className = "kpi-grid overview-grid";
-  overviewGrid.innerHTML = metrics.map((metric) => {
-    const change = formatChange(metric.delta, metric.field);
+  overviewGrid.className = "kpi-grid overview-grid overview-group-grid";
+  overviewGrid.innerHTML = groups.map((group) => {
     return `
-      <div class="kpi-card">
-        <div class="kpi-title">${metric.title}</div>
-        <div class="kpi-value">${formatValue(metric.latestValue, metric.field)}</div>
-        <div class="kpi-change ${change.cls}">${metric.week} ${change.text}</div>
+      <div class="kpi-card overview-group-card">
+        <div class="kpi-title">${group.title}</div>
+        <div class="overview-metrics">
+          ${group.metrics.map((metric) => {
+            const change = formatChange(metric.delta, metric.field);
+            return `
+              <div class="overview-metric-row">
+                <div class="overview-metric-name">${metric.field}</div>
+                <div class="overview-metric-value">${formatValue(metric.latestValue, metric.field)}</div>
+                <div class="kpi-change ${change.cls}">${group.week} ${change.text}</div>
+              </div>
+            `;
+          }).join("")}
+        </div>
       </div>
     `;
   }).join("");
 }
 
 function renderDashboardContent() {
-  const tables = state.workbook.tables;
+  const tables = state.workbook.tables.filter((table) => table.sheet !== "总结" && table.title !== "总结-1" && table.title !== "总结");
   if (!tables.length) {
     dashboardContent.innerHTML = `<div class="empty-state">没有识别到任何数据表。</div>`;
     return;
