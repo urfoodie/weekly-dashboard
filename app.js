@@ -158,6 +158,13 @@ function findFieldByName(fields, target) {
   return fields.find((field) => normalizeFieldName(field) === normalizedTarget) || null;
 }
 
+function findFieldByKeywords(fields, keywords) {
+  return fields.find((field) => {
+    const normalized = normalizeFieldName(field);
+    return keywords.every((keyword) => normalized.includes(normalizeFieldName(keyword)));
+  }) || null;
+}
+
 function splitBlocks(rows) {
   const rawBlocks = [];
   let current = [];
@@ -443,10 +450,18 @@ function buildChartsHtml(table) {
   }
   const labels = table.rows.map((row) => row[table.weekField]);
   if (table.sheet.includes("采购数据统计") || table.title.includes("采购数据统计")) {
-    const contractField = findFieldByName(table.numericFields, "采购合同个数");
-    const orderField = findFieldByName(table.numericFields, "采购单个数");
+    const contractField =
+      findFieldByName(table.numericFields, "采购合同个数") ||
+      findFieldByKeywords(table.numericFields, ["采购", "合同", "个数"]);
+    const orderField =
+      findFieldByName(table.numericFields, "采购单个数") ||
+      findFieldByKeywords(table.numericFields, ["采购单", "个数"]) ||
+      findFieldByKeywords(table.numericFields, ["采购", "单个数"]);
     const combinedAvailable = !!contractField && !!orderField;
-    const remainingFields = table.numericFields.filter((field) => field !== contractField && field !== orderField);
+    const remainingFields = table.numericFields.filter((field) => {
+      return normalizeFieldName(field) !== normalizeFieldName(contractField) &&
+        normalizeFieldName(field) !== normalizeFieldName(orderField);
+    });
     const charts = [];
     if (combinedAvailable) {
       charts.push(
@@ -459,6 +474,8 @@ function buildChartsHtml(table) {
           "采购合同个数与采购单个数趋势"
         )
       );
+    } else {
+      console.warn("采购数据统计未识别到合并字段", table.numericFields);
     }
     remainingFields.slice(0, 2).forEach((field) => {
       const values = table.rows.map((row) => Number(row[field])).filter((value) => Number.isFinite(value));
