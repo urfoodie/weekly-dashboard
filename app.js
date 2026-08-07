@@ -392,6 +392,43 @@ function buildInstructionHtml(table) {
   `;
 }
 
+function buildMetricsSection(table) {
+  if (!shouldShowKpi(table)) return "";
+  const weeklyMetrics = computeWeeklyMetrics(table);
+  if (!weeklyMetrics.length) return "";
+  return `
+    <div class="dashboard-block">
+      <h4 class="dashboard-block-title">指标卡片</h4>
+      <div class="kpi-grid">${weeklyMetrics.slice(0, 4).map((metric) => {
+        const change = formatChange(metric.delta, metric.field);
+        return `
+          <div class="kpi-card">
+            <div class="kpi-title">${metric.field}</div>
+            <div class="kpi-value">${formatValue(metric.latestValue, metric.field)}</div>
+            <div class="kpi-change ${change.cls}">${metric.week} ${change.text}</div>
+          </div>
+        `;
+      }).join("")}</div>
+    </div>
+  `;
+}
+
+function buildChartsSection(table) {
+  if (!shouldShowChart(table)) return "";
+  const labels = table.rows.map((row) => row[table.weekField]);
+  const chartFields = table.numericFields.slice(0, 4);
+  if (!chartFields.length) return "";
+  return `
+    <div class="dashboard-block">
+      <h4 class="dashboard-block-title">趋势图</h4>
+      <div class="chart-grid">${chartFields.map((field) => {
+        const values = table.rows.map((row) => Number(row[field])).filter((value) => Number.isFinite(value));
+        return buildLineChart(labels, values, field);
+      }).join("")}</div>
+    </div>
+  `;
+}
+
 function renderOverview() {
   const metrics = buildOverviewMetrics(state.workbook);
   if (!metrics.length) {
@@ -418,26 +455,12 @@ function renderDashboardContent() {
   }
 
   dashboardContent.innerHTML = tables.map((table) => {
-    const weeklyMetrics = shouldShowKpi(table) ? computeWeeklyMetrics(table) : [];
-    const metricsHtml = !shouldShowKpi(table)
-      ? `<div class="empty-state">该模块按新模板不展示 KPI 卡片。</div>`
-      : weeklyMetrics.length
-        ? `<div class="kpi-grid">${weeklyMetrics.slice(0, 4).map((metric) => {
-            const change = formatChange(metric.delta, metric.field);
-            return `
-              <div class="kpi-card">
-                <div class="kpi-title">${metric.field}</div>
-                <div class="kpi-value">${formatValue(metric.latestValue, metric.field)}</div>
-                <div class="kpi-change ${change.cls}">${metric.week} ${change.text}</div>
-              </div>
-            `;
-          }).join("")}</div>`
-        : `<div class="empty-state">当前表没有适合展示的 KPI。</div>`;
-
     const meta = table.weekField
       ? `已识别周期字段：${table.weekField} · 共 ${table.rows.length} 行`
       : `未识别周期字段 · 共 ${table.rows.length} 行`;
 
+    const metricsSection = buildMetricsSection(table);
+    const chartsSection = buildChartsSection(table);
     const instructionsHtml = table.sheet === "填写说明"
       ? `
         <div class="dashboard-block">
@@ -453,14 +476,8 @@ function renderDashboardContent() {
           <h3 class="dashboard-section-title">${table.title}</h3>
           <p class="dashboard-section-meta">${meta}</p>
         </div>
-        <div class="dashboard-block">
-          <h4 class="dashboard-block-title">指标卡片</h4>
-          ${metricsHtml}
-        </div>
-        <div class="dashboard-block">
-          <h4 class="dashboard-block-title">趋势图</h4>
-          <div class="chart-grid">${buildChartsHtml(table)}</div>
-        </div>
+        ${metricsSection}
+        ${chartsSection}
         ${instructionsHtml}
         <div class="dashboard-block">
           <h4 class="dashboard-block-title">数据明细</h4>
