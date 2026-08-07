@@ -423,7 +423,7 @@ function buildChartsHtml(table) {
     return `<div class="empty-state">该模块按新模板不展示图表。</div>`;
   }
   const labels = table.rows.map((row) => row[table.weekField]);
-  if (table.sheet === "采购数据统计" || table.title.startsWith("采购数据统计-")) {
+  if (table.sheet.includes("采购数据统计") || table.title.includes("采购数据统计")) {
     const combinedFields = ["采购合同个数", "采购单个数"];
     const combinedAvailable = combinedFields.every((field) => table.numericFields.includes(field));
     const remainingFields = table.numericFields.filter((field) => !combinedFields.includes(field));
