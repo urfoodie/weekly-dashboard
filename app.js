@@ -347,7 +347,7 @@ function buildMultiLineChart(labels, seriesList, title) {
   const bottom = 36;
   const innerW = width - left - right;
   const innerH = height - top - bottom;
-  const palette = ["#2d6fb8", "#0b9a53", "#d63b3b", "#8b5cf6"];
+  const palette = ["#2d6fb8", "#d97706", "#0b9a53", "#8b5cf6"];
 
   const allValues = seriesList.flatMap((series) => series.values).filter((value) => Number.isFinite(value));
   const min = Math.min(...allValues);
@@ -389,7 +389,15 @@ function buildMultiLineChart(labels, seriesList, title) {
           return `<text x="${x - 14}" y="${height - 12}">${label}</text>`;
         }).join("")}
       </svg>
-      <div class="chart-meta">${lines.map((line) => `<span style="margin-right:12px;color:${line.color};font-weight:700">${line.name}</span>`).join("")}</div>
+      <div class="chart-legend">
+        ${lines.map((line) => `
+          <span class="chart-legend-item">
+            <span class="chart-legend-swatch" style="background:${line.color}"></span>
+            ${line.name}
+          </span>
+        `).join("")}
+      </div>
+      <div class="chart-meta">共 ${labels.length} 个周节点</div>
     </div>
   `;
 }
@@ -436,7 +444,7 @@ function buildChartsHtml(table) {
             name: field,
             values: table.rows.map((row) => Number(row[field])).filter((value) => Number.isFinite(value))
           })),
-          "采购合同个数 / 采购单个数"
+          "采购合同个数与采购单个数趋势"
         )
       );
     }
