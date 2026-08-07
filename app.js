@@ -236,15 +236,6 @@ function buildTableFromBlock(sheetName, title, block, blockIndex) {
   };
 }
 
-function sortTables(tables) {
-  const priority = ["采购数据统计", "Key-SKU断货统计", "议价数据统计", "仓储单位产出", "效率提升", "库存周转分析", "填写说明"];
-  return [...tables].sort((left, right) => {
-    const leftIndex = priority.indexOf(left.sheet);
-    const rightIndex = priority.indexOf(right.sheet);
-    return (leftIndex === -1 ? 999 : leftIndex) - (rightIndex === -1 ? 999 : rightIndex);
-  });
-}
-
 function parseWorkbook(file, data) {
   const workbook = XLSX.read(data, { type: "array" });
   const tables = [];
@@ -259,7 +250,7 @@ function parseWorkbook(file, data) {
   });
   return {
     workbookName: file.name,
-    tables: sortTables(tables)
+    tables
   };
 }
 
@@ -405,7 +396,8 @@ function buildMultiLineChart(labels, seriesList, title) {
 
 function buildTableHtml(table) {
   const headerHtml = table.headers.map((header) => {
-    const wrapHeader = ["仓储单位产出", "库存周转分析", "采购数据统计"].includes(table.sheet);
+    const wrapHeaderSheets = ["仓储单位产出", "库存周转分析", "采购数据统计"];
+    const wrapHeader = wrapHeaderSheets.includes(table.sheet) || table.title.startsWith("订单数据-");
     const className = wrapHeader ? "wrap-header" : "";
     return `<th class="${className}">${header}</th>`;
   }).join("");
@@ -431,10 +423,10 @@ function buildChartsHtml(table) {
     return `<div class="empty-state">该模块按新模板不展示图表。</div>`;
   }
   const labels = table.rows.map((row) => row[table.weekField]);
-  if (table.sheet === "采购数据统计") {
+  if (table.sheet === "采购数据统计" || table.title.startsWith("采购数据统计-")) {
     const combinedFields = ["采购合同个数", "采购单个数"];
     const combinedAvailable = combinedFields.every((field) => table.numericFields.includes(field));
-    const remainingFields = table.numericFields.slice(0, 4).filter((field) => !combinedFields.includes(field));
+    const remainingFields = table.numericFields.filter((field) => !combinedFields.includes(field));
     const charts = [];
     if (combinedAvailable) {
       charts.push(
