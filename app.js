@@ -209,7 +209,22 @@ demoWorkbook.tables = [
   }
 ];
 
-const state = { workbook: demoWorkbook };
+const PAGE_VERSION = "v2026.08.07-2";
+const TEMPLATE_VERSION = "v2026.08.07";
+const PAGE_UPDATED_AT = "2026-08-07 22:30";
+const STORAGE_KEYS = {
+  workbook: "weekly-dashboard:last-workbook:v1",
+  meta: "weekly-dashboard:last-meta:v1"
+};
+
+const state = {
+  workbook: demoWorkbook,
+  meta: {
+    source: "demo",
+    workbookName: demoWorkbook.workbookName,
+    uploadedAt: null
+  }
+};
 const fileInput = document.getElementById("fileInput");
 const demoButton = document.getElementById("demoButton");
 const screenshotButton = document.getElementById("screenshotButton");
@@ -217,6 +232,8 @@ const statusText = document.getElementById("statusText");
 const overviewSummary = document.getElementById("overviewSummary");
 const overviewGrid = document.getElementById("overviewGrid");
 const dashboardContent = document.getElementById("dashboardContent");
+const todayDate = document.getElementById("todayDate");
+const versionMeta = document.getElementById("versionMeta");
 
 function isEmpty(value) {
   return value === null || value === undefined || String(value).trim() === "";
@@ -904,7 +921,100 @@ function renderDashboardContent() {
   }).join("");
 }
 
+function padNumber(value) {
+  return String(value).padStart(2, "0");
+}
+
+function formatDisplayDate(date = new Date()) {
+  const weekDays = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+  return `${date.getFullYear()}年${padNumber(date.getMonth() + 1)}月${padNumber(date.getDate())}日 ${weekDays[date.getDay()]}`;
+}
+
+function formatDateTime(dateInput) {
+  if (!dateInput) return "-";
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return "-";
+  return `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(date.getDate())} ${padNumber(date.getHours())}:${padNumber(date.getMinutes())}`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function persistWorkbook(workbook, meta) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.workbook, JSON.stringify(workbook));
+    localStorage.setItem(STORAGE_KEYS.meta, JSON.stringify(meta));
+  } catch (error) {
+    console.warn("Failed to persist workbook", error);
+  }
+}
+
+function clearPersistedWorkbook() {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.workbook);
+    localStorage.removeItem(STORAGE_KEYS.meta);
+  } catch (error) {
+    console.warn("Failed to clear workbook cache", error);
+  }
+}
+
+function restorePersistedWorkbook() {
+  try {
+    const workbookRaw = localStorage.getItem(STORAGE_KEYS.workbook);
+    if (!workbookRaw) return null;
+
+    const workbook = JSON.parse(workbookRaw);
+    if (!workbook || !Array.isArray(workbook.tables) || !workbook.tables.length) return null;
+
+    const metaRaw = localStorage.getItem(STORAGE_KEYS.meta);
+    const meta = metaRaw ? JSON.parse(metaRaw) : {};
+
+    return {
+      workbook,
+      meta: {
+        source: "upload",
+        workbookName: meta.workbookName || workbook.workbookName || "最近一次上传",
+        uploadedAt: meta.uploadedAt || null
+      }
+    };
+  } catch (error) {
+    console.warn("Failed to restore workbook cache", error);
+    clearPersistedWorkbook();
+    return null;
+  }
+}
+
+function renderPageChrome() {
+  if (todayDate) {
+    todayDate.textContent = formatDisplayDate(new Date());
+  }
+
+  if (versionMeta) {
+    versionMeta.innerHTML = `
+      <div class="page-meta-row">
+        <span class="page-meta-label">模板版本</span>
+        <span class="page-meta-value">${escapeHtml(TEMPLATE_VERSION)}</span>
+      </div>
+      <div class="page-meta-row">
+        <span class="page-meta-label">页面版本</span>
+        <span class="page-meta-value">${escapeHtml(PAGE_VERSION)}</span>
+      </div>
+      <div class="page-meta-row">
+        <span class="page-meta-label">更新时间</span>
+        <span class="page-meta-value">${escapeHtml(PAGE_UPDATED_AT)}</span>
+      </div>
+    `;
+  }
+}
+
 function renderAll() {
+  renderPageChrome();
   renderOverview();
   renderDashboardContent();
 }
@@ -914,8 +1024,16 @@ async function uploadWorkbook(file) {
   const buffer = await file.arrayBuffer();
   const workbook = parseWorkbook(file, buffer);
   if (!workbook.tables.length) throw new Error("没有识别到可用数据表");
+
   state.workbook = workbook;
-  statusText.textContent = `已加载：${workbook.workbookName}`;
+  state.meta = {
+    source: "upload",
+    workbookName: workbook.workbookName || file.name,
+    uploadedAt: new Date().toISOString()
+  };
+  persistWorkbook(workbook, state.meta);
+
+  statusText.textContent = `已加载：${state.meta.workbookName}`;
   renderAll();
 }
 
@@ -942,6 +1060,26 @@ async function downloadScreenshot() {
   }
 }
 
+function initializeApp() {
+  const restored = restorePersistedWorkbook();
+  if (restored) {
+    state.workbook = restored.workbook;
+    state.meta = restored.meta;
+    const restoredAt = restored.meta.uploadedAt ? `（${formatDateTime(restored.meta.uploadedAt)}）` : "";
+    statusText.textContent = `已恢复最近一次上传：${restored.meta.workbookName}${restoredAt}`;
+  } else {
+    state.workbook = demoWorkbook;
+    state.meta = {
+      source: "demo",
+      workbookName: demoWorkbook.workbookName,
+      uploadedAt: null
+    };
+    statusText.textContent = "已加载示例数据";
+  }
+
+  renderAll();
+}
+
 fileInput.addEventListener("change", async (event) => {
   const [file] = event.target.files || [];
   if (!file) return;
@@ -955,11 +1093,17 @@ fileInput.addEventListener("change", async (event) => {
 });
 
 demoButton.addEventListener("click", () => {
+  clearPersistedWorkbook();
   state.workbook = demoWorkbook;
+  state.meta = {
+    source: "demo",
+    workbookName: demoWorkbook.workbookName,
+    uploadedAt: null
+  };
   statusText.textContent = "已恢复示例数据";
   renderAll();
 });
 
 screenshotButton.addEventListener("click", downloadScreenshot);
 
-renderAll();
+initializeApp();

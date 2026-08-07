@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>周维度经营看板</title>
-  <link rel="stylesheet" href="./styles.css?v=20260807-1" />
+  <link rel="stylesheet" href="./styles.css?v=20260807-2" />
 </head>
 <body>
   <div class="page" id="captureTarget">
@@ -12,16 +12,19 @@
       <div>
         <p class="eyebrow">Dashboard</p>
         <h1>周维度经营看板</h1>
-        <p class="subtle">按新模板上传 Excel，一页展示全部模块；支持下载模板与页面截图。</p>
+        <p class="subtle">按最新模板上传 Excel，一页展示全部模块，支持截图与模板下载。</p>
       </div>
-      <div class="toolbar no-capture">
-        <label class="upload-button">
-          <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" />
-          上传 Excel
-        </label>
-        <a class="secondary-link" href="./周维度经营看板上传模板.xlsx" download>下载 Excel 模板</a>
-        <button id="screenshotButton" class="secondary" type="button">下载页面截图</button>
-        <button id="demoButton" class="secondary" type="button">恢复示例</button>
+      <div class="hero-side">
+        <div id="todayDate" class="today-date" aria-live="polite"></div>
+        <div class="toolbar no-capture">
+          <label class="upload-button">
+            <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" />
+            上传 Excel
+          </label>
+          <a class="secondary-link" href="./周维度经营看板上传模板.xlsx" download>下载 Excel 模板</a>
+          <button id="screenshotButton" class="secondary" type="button">下载页面截图</button>
+          <button id="demoButton" class="secondary" type="button">恢复示例</button>
+        </div>
       </div>
     </header>
 
@@ -42,10 +45,12 @@
       <div class="section-title">单页周报</div>
       <div id="dashboardContent" class="dashboard-content"></div>
     </section>
+
+    <aside id="versionMeta" class="page-meta-corner" aria-live="polite"></aside>
   </div>
 
-  <script src="./assets/js/xlsx.full.min.js?v=20260807-1"></script>
-  <script src="./assets/js/html2canvas.min.js?v=20260807-1"></script>
-  <script src="./app.js?v=20260807-1"></script>
+  <script src="./assets/js/xlsx.full.min.js?v=20260807-2"></script>
+  <script src="./assets/js/html2canvas.min.js?v=20260807-2"></script>
+  <script src="./app.js?v=20260807-2"></script>
 </body>
 </html>
