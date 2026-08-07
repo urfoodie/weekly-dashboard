@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>周维度经营看板</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">GitHub Pages Dashboard</p>
+        <h1>周维度经营看板</h1>
+        <p class="subtle">纯静态版本，可直接部署到 GitHub Pages。支持浏览器中上传 Excel 并一页展示全部周报区块。</p>
+      </div>
+      <div class="toolbar">
+        <label class="upload-button">
+          <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" />
+          上传 Excel
+        </label>
+        <a class="secondary-link" href="./周维度经营看板上传模板.xlsx" download>下载 Excel 模板</a>
+        <button id="demoButton" class="secondary" type="button">恢复示例</button>
+      </div>
+    </header>
+
+    <section class="panel control-panel">
+      <div class="control-group">
+        <label for="statusText">当前状态</label>
+        <div id="statusText" class="status">已加载示例数据</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">经营总览</div>
+      <div id="overviewGrid" class="kpi-grid"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">单页周报</div>
+      <div id="dashboardContent" class="dashboard-content"></div>
+    </section>
+  </div>
+
+  <script src="./assets/js/xlsx.full.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
