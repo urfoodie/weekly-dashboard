@@ -289,6 +289,12 @@ th {
   font-weight: 700;
 }
 
+th.wrap-header {
+  white-space: normal;
+  line-height: 1.4;
+  min-width: 110px;
+}
+
 .wrap-text {
   white-space: normal;
   text-align: left;

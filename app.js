@@ -1,5 +1,5 @@
 const NON_CHART_SHEETS = new Set(["填写说明", "效率提升", "仓储单位产出", "库存周转分析"]);
-const NON_KPI_SHEETS = new Set(["填写说明"]);
+const NON_KPI_SHEETS = new Set(["填写说明", "库存周转分析"]);
 const OVERVIEW_PRIORITY = ["采购数据统计", "Key-SKU断货统计", "议价数据统计"];
 const WRAP_COLUMNS = new Set(["本周进展", "填写要求", "备注说明"]);
 
@@ -345,7 +345,11 @@ function buildLineChart(labels, values, title) {
 }
 
 function buildTableHtml(table) {
-  const headerHtml = table.headers.map((header) => `<th>${header}</th>`).join("");
+  const headerHtml = table.headers.map((header) => {
+    const wrapHeader = ["仓储单位产出", "库存周转分析", "采购数据统计"].includes(table.sheet);
+    const className = wrapHeader ? "wrap-header" : "";
+    return `<th class="${className}">${header}</th>`;
+  }).join("");
   const rowsHtml = table.rows.map((row) => `
     <tr>${table.headers.map((header) => {
       const className = WRAP_COLUMNS.has(header) ? "wrap-text" : "";
