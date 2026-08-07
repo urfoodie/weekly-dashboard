@@ -458,6 +458,45 @@ table.warehouse-table td:nth-child(n + 2) {
   width: calc((100% - 86px) / 16);
 }
 
+.table-wrapper:has(table.inventory-table) {
+  overflow: visible;
+}
+
+table.inventory-table {
+  table-layout: fixed;
+  min-width: 0;
+  width: 100%;
+  font-size: 12px;
+}
+
+table.inventory-table th,
+table.inventory-table td {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
+  padding: 8px 6px;
+}
+
+table.inventory-table th.wrap-header {
+  min-width: 0;
+  line-height: 1.45;
+}
+
+table.inventory-table td {
+  min-width: 0;
+}
+
+table.inventory-table th:first-child,
+table.inventory-table td:first-child {
+  width: 110px;
+}
+
+table.inventory-table th:nth-child(n + 2),
+table.inventory-table td:nth-child(n + 2) {
+  width: calc((100% - 110px) / 10);
+}
+
 .wrap-text {
   white-space: normal;
   text-align: left;
