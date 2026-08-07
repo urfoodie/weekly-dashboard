@@ -1,5 +1,10 @@
+const NON_CHART_SHEETS = new Set(["填写说明", "效率提升", "仓储单位产出", "库存周转分析"]);
+const NON_KPI_SHEETS = new Set(["填写说明"]);
+const OVERVIEW_PRIORITY = ["采购数据统计", "Key-SKU断货统计", "议价数据统计"];
+const WRAP_COLUMNS = new Set(["本周进展", "填写要求", "备注说明"]);
+
 const demoWorkbook = {
-  workbookName: "示例采购经营周报",
+  workbookName: "周维度经营看板上传模板-new.xlsx",
   tables: [
     {
       id: "purchase-stats",
@@ -7,12 +12,10 @@ const demoWorkbook = {
       title: "采购数据统计",
       headers: ["周次", "采购合同个数", "采购单个数", "销售采购单个数", "直发采购单个数", "直发采购单比例", "采购金额（元）", "人数", "人均采购金额（元）", "人均采购单（个）", "金额周环比"],
       weekField: "周次",
-      numericFields: ["采购合同个数", "采购单个数", "销售采购单个数", "直发采购单个数", "直发采购单比例", "采购金额（元）", "人数", "人均采购金额（元）", "人均采购单（个）"],
+      numericFields: ["采购合同个数", "采购单个数", "销售采购单个数", "直发采购单个数", "直发采购单比例", "采购金额（元）", "人数", "人均采购金额（元）", "人均采购单（个）", "金额周环比"],
       rows: [
-        { "周次": "7.09", "采购合同个数": 1012, "采购单个数": 2320, "销售采购单个数": 1100, "直发采购单个数": 488, "直发采购单比例": 0.443, "采购金额（元）": 3980112.2, "人数": 15, "人均采购金额（元）": 265340.81, "人均采购单（个）": 154.7, "金额周环比": null },
-        { "周次": "7.16", "采购合同个数": 1028, "采购单个数": 2408, "销售采购单个数": 1126, "直发采购单个数": 502, "直发采购单比例": 0.447, "采购金额（元）": 4042050.4, "人数": 15, "人均采购金额（元）": 269470.03, "人均采购单（个）": 160.5, "金额周环比": 0.016 },
-        { "周次": "7.23", "采购合同个数": 1039, "采购单个数": 2486, "销售采购单个数": 1169, "直发采购单个数": 521, "直发采购单比例": 0.446, "采购金额（元）": 4141198.82, "人数": 15, "人均采购金额（元）": 276079.92, "人均采购单（个）": 165.7, "金额周环比": 0.025 },
-        { "周次": "7.30", "采购合同个数": 1169, "采购单个数": 3698, "销售采购单个数": 1138, "直发采购单个数": 515, "直发采购单比例": 0.453, "采购金额（元）": 5760008.07, "人数": 15, "人均采购金额（元）": 384000.54, "人均采购单（个）": 246.5, "金额周环比": 0.391 }
+        { "周次": "07-23", "采购合同个数": 1039, "采购单个数": 2486, "销售采购单个数": 1169, "直发采购单个数": 521, "直发采购单比例": 0.446, "采购金额（元）": 4141198.82, "人数": 15, "人均采购金额（元）": 276079.92, "人均采购单（个）": 165.7, "金额周环比": null },
+        { "周次": "07-30", "采购合同个数": 1169, "采购单个数": 3698, "销售采购单个数": 1138, "直发采购单个数": 515, "直发采购单比例": 0.453, "采购金额（元）": 5760008.07, "人数": 15, "人均采购金额（元）": 384000.54, "人均采购单（个）": 246.5, "金额周环比": 0.391 }
       ]
     },
     {
@@ -23,10 +26,8 @@ const demoWorkbook = {
       weekField: "周次",
       numericFields: ["货号个数", "断货个数", "断货率"],
       rows: [
-        { "周次": "7.09", "货号个数": 2281, "断货个数": 44, "断货率": 0.0193, "备注说明": "" },
-        { "周次": "7.16", "货号个数": 2270, "断货个数": 47, "断货率": 0.0207, "备注说明": "" },
-        { "周次": "7.23", "货号个数": 2264, "断货个数": 48, "断货率": 0.0212, "备注说明": "" },
-        { "周次": "7.30", "货号个数": 2248, "断货个数": 69, "断货率": 0.0307, "备注说明": "阈值调整" }
+        { "周次": "07-23", "货号个数": 2264, "断货个数": 48, "断货率": 0.0212, "备注说明": "" },
+        { "周次": "07-30", "货号个数": 2248, "断货个数": 69, "断货率": 0.0307, "备注说明": "阈值调整" }
       ]
     },
     {
@@ -37,22 +38,59 @@ const demoWorkbook = {
       weekField: "周次",
       numericFields: ["单笔议价金额（元）", "备货议价金额（元）", "议价合计（元）"],
       rows: [
-        { "周次": "7.09", "单笔议价金额（元）": 4880.2, "备货议价金额（元）": 50210.4, "议价合计（元）": 55090.6 },
-        { "周次": "7.16", "单笔议价金额（元）": 4955.4, "备货议价金额（元）": 54105.2, "议价合计（元）": 59060.6 },
-        { "周次": "7.23", "单笔议价金额（元）": 4971.97, "备货议价金额（元）": 56502.88, "议价合计（元）": 61474.85 },
-        { "周次": "7.30", "单笔议价金额（元）": 5210.54, "备货议价金额（元）": 25998.03, "议价合计（元）": 31208.57 }
+        { "周次": "07-23", "单笔议价金额（元）": 4971.97, "备货议价金额（元）": 56502.88, "议价合计（元）": 61474.85 },
+        { "周次": "07-30", "单笔议价金额（元）": 5210.54, "备货议价金额（元）": 25998.03, "议价合计（元）": 31208.57 }
+      ]
+    },
+    {
+      id: "warehouse-output",
+      sheet: "仓储单位产出",
+      title: "仓储单位产出",
+      headers: ["月份", "主仓单位面积销售额", "廊坊仓单位面积销售额", "广州仓单位面积销售额", "成都仓单位面积销售额", "主仓单位面积毛利", "廊坊仓单位面积毛利", "广州仓单位面积毛利", "成都仓单位面积毛利"],
+      weekField: null,
+      numericFields: ["主仓单位面积销售额", "廊坊仓单位面积销售额", "广州仓单位面积销售额", "成都仓单位面积销售额", "主仓单位面积毛利", "廊坊仓单位面积毛利", "广州仓单位面积毛利", "成都仓单位面积毛利"],
+      rows: [
+        { "月份": "2026-06", "主仓单位面积销售额": 1814, "廊坊仓单位面积销售额": 1092, "广州仓单位面积销售额": 519, "成都仓单位面积销售额": 558, "主仓单位面积毛利": 544, "廊坊仓单位面积毛利": 290, "广州仓单位面积毛利": 184, "成都仓单位面积毛利": 198 }
+      ]
+    },
+    {
+      id: "efficiency",
+      sheet: "效率提升",
+      title: "效率提升",
+      headers: ["周次", "模块", "本周进展"],
+      weekField: "周次",
+      numericFields: [],
+      rows: [
+        { "周次": "07-23", "模块": "AI", "本周进展": "知识库：产品资料投喂；发票命名自动化" },
+        { "周次": "07-30", "模块": "流程优化", "本周进展": "年度协议管理打通；标签自动流转模块沟通" },
+        { "周次": "08-06", "模块": "AI", "本周进展": null }
       ]
     },
     {
       id: "inventory-turnover",
       sheet: "库存周转分析",
-      title: "库存周转分析（月度对比）",
-      headers: ["仓库/品类", "6月库存金额", "6月平均周转天数", "7月库存金额", "7月平均周转天数", "库存金额环比变化", "周转天数变化"],
+      title: "库存周转分析",
+      headers: ["仓库/品类", "6月库存金额", "6月年营业成本", "6月周转次数", "6月平均周转天数", "7月库存金额", "7月年营业成本", "7月周转次数", "7月平均周转天数", "库存金额环比变化", "周转天数变化(天）"],
       weekField: null,
-      numericFields: ["6月库存金额", "6月平均周转天数", "7月库存金额", "7月平均周转天数", "库存金额环比变化", "周转天数变化"],
+      numericFields: ["6月库存金额", "6月年营业成本", "6月周转次数", "6月平均周转天数", "7月库存金额", "7月年营业成本", "7月周转次数", "7月平均周转天数", "库存金额环比变化", "周转天数变化(天）"],
       rows: [
-        { "仓库/品类": "主仓有阈值的明星产品", "6月库存金额": 12960913.76, "6月平均周转天数": 79.1, "7月库存金额": 14129745.66, "7月平均周转天数": 90.1, "库存金额环比变化": 0.09, "周转天数变化": 11 },
-        { "仓库/品类": "主仓所有商品", "6月库存金额": 32900585.42, "6月平均周转天数": 89.1, "7月库存金额": 34198877.49, "7月平均周转天数": 94.7, "库存金额环比变化": 0.039, "周转天数变化": 5.6 }
+        { "仓库/品类": "主仓有阈值的明星产品", "6月库存金额": 12960913.76, "6月年营业成本": 59780928.78, "6月周转次数": 4.61, "6月平均周转天数": 79.1, "7月库存金额": 14129745.66, "7月年营业成本": 57251892.44, "7月周转次数": 4.05, "7月平均周转天数": 90.1, "库存金额环比变化": 0.09, "周转天数变化(天）": 11 },
+        { "仓库/品类": "主仓所有商品", "6月库存金额": 32900585.42, "6月年营业成本": 134744245.49, "6月周转次数": 4.1, "6月平均周转天数": 89.1, "7月库存金额": 34198877.49, "7月年营业成本": 131835427.48, "7月周转次数": 3.85, "7月平均周转天数": 94.7, "库存金额环比变化": 0.039, "周转天数变化(天）": 5.6 }
+      ]
+    },
+    {
+      id: "instructions",
+      sheet: "填写说明",
+      title: "填写说明",
+      headers: ["说明项", "填写要求"],
+      weekField: null,
+      numericFields: [],
+      rows: [
+        { "说明项": "周次格式", "填写要求": "建议填写 07-30、2026-W31 或 本周日期" },
+        { "说明项": "首行", "填写要求": "每张表第一行写表头，不要留空" },
+        { "说明项": "金额字段", "填写要求": "填写纯数字，不要手动加逗号" },
+        { "说明项": "比例字段", "填写要求": "填写 0.453 或 45.3% 都可以" },
+        { "说明项": "备注字段", "填写要求": "可为空，用于展示运营说明" }
       ]
     }
   ]
@@ -61,6 +99,7 @@ const demoWorkbook = {
 const state = { workbook: demoWorkbook };
 const fileInput = document.getElementById("fileInput");
 const demoButton = document.getElementById("demoButton");
+const screenshotButton = document.getElementById("screenshotButton");
 const statusText = document.getElementById("statusText");
 const overviewGrid = document.getElementById("overviewGrid");
 const dashboardContent = document.getElementById("dashboardContent");
@@ -109,18 +148,34 @@ function tryNumber(value) {
 }
 
 function splitBlocks(rows) {
-  const blocks = [];
+  const rawBlocks = [];
   let current = [];
   rows.forEach((row) => {
     const hasValue = row.some((cell) => !isEmpty(cell));
     if (hasValue) {
       current.push(row);
     } else if (current.length) {
-      blocks.push(current);
+      rawBlocks.push(current);
       current = [];
     }
   });
-  if (current.length) blocks.push(current);
+  if (current.length) rawBlocks.push(current);
+
+  const blocks = [];
+  rawBlocks.forEach((block) => {
+    const firstNonEmptyCount = block[0].filter((cell) => !isEmpty(cell)).length;
+    const isSingleTitleRow = block.length === 1 && firstNonEmptyCount <= 1;
+    if (isSingleTitleRow && blocks.length < rawBlocks.length) {
+      blocks.push(block);
+      return;
+    }
+    const previous = blocks[blocks.length - 1];
+    if (previous && previous.length === 1 && previous[0].filter((cell) => !isEmpty(cell)).length <= 1) {
+      blocks[blocks.length - 1] = [...previous, ...block];
+    } else {
+      blocks.push(block);
+    }
+  });
   return blocks;
 }
 
@@ -135,10 +190,12 @@ function buildTableFromBlock(sheetName, title, block, blockIndex) {
     if (firstValue) tableTitle = String(firstValue).trim();
     headerRowIndex = 1;
   }
+
   const headers = nonEmptyRows[headerRowIndex].map((value, index) => {
     const text = value === undefined || value === null ? "" : String(value).trim();
     return text || `字段${index + 1}`;
   });
+
   const rows = nonEmptyRows.slice(headerRowIndex + 1).map((rawRow) => {
     const rowObj = {};
     headers.forEach((header, index) => {
@@ -146,6 +203,7 @@ function buildTableFromBlock(sheetName, title, block, blockIndex) {
     });
     return rowObj;
   }).filter((row) => Object.values(row).some((value) => !isEmpty(value)));
+
   if (!rows.length) return null;
 
   const numericFields = [];
@@ -178,6 +236,15 @@ function buildTableFromBlock(sheetName, title, block, blockIndex) {
   };
 }
 
+function sortTables(tables) {
+  const priority = ["采购数据统计", "Key-SKU断货统计", "议价数据统计", "仓储单位产出", "效率提升", "库存周转分析", "填写说明"];
+  return [...tables].sort((left, right) => {
+    const leftIndex = priority.indexOf(left.sheet);
+    const rightIndex = priority.indexOf(right.sheet);
+    return (leftIndex === -1 ? 999 : leftIndex) - (rightIndex === -1 ? 999 : rightIndex);
+  });
+}
+
 function parseWorkbook(file, data) {
   const workbook = XLSX.read(data, { type: "array" });
   const tables = [];
@@ -192,8 +259,16 @@ function parseWorkbook(file, data) {
   });
   return {
     workbookName: file.name,
-    tables
+    tables: sortTables(tables)
   };
+}
+
+function shouldShowChart(table) {
+  return !NON_CHART_SHEETS.has(table.sheet) && !!table.weekField && table.numericFields.length > 0;
+}
+
+function shouldShowKpi(table) {
+  return !NON_KPI_SHEETS.has(table.sheet);
 }
 
 function computeWeeklyMetrics(table) {
@@ -217,15 +292,14 @@ function computeWeeklyMetrics(table) {
 }
 
 function buildOverviewMetrics(workbook) {
-  return workbook.tables
-    .filter((table) => table.weekField && table.rows.length)
-    .slice(0, 3)
-    .flatMap((table) =>
-      computeWeeklyMetrics(table).slice(0, 2).map((metric) => ({
-        ...metric,
-        title: `${table.title} · ${metric.field}`
-      }))
-    );
+  return OVERVIEW_PRIORITY.flatMap((sheetName) => {
+    const table = workbook.tables.find((item) => item.sheet === sheetName);
+    if (!table) return [];
+    return computeWeeklyMetrics(table).slice(0, 2).map((metric) => ({
+      ...metric,
+      title: `${table.title} · ${metric.field}`
+    }));
+  });
 }
 
 function buildLineChart(labels, values, title) {
@@ -273,8 +347,12 @@ function buildLineChart(labels, values, title) {
 function buildTableHtml(table) {
   const headerHtml = table.headers.map((header) => `<th>${header}</th>`).join("");
   const rowsHtml = table.rows.map((row) => `
-    <tr>${table.headers.map((header) => `<td>${formatValue(row[header], header)}</td>`).join("")}</tr>
+    <tr>${table.headers.map((header) => {
+      const className = WRAP_COLUMNS.has(header) ? "wrap-text" : "";
+      return `<td class="${className}">${formatValue(row[header], header)}</td>`;
+    }).join("")}</tr>
   `).join("");
+
   return `
     <div class="table-wrapper">
       <table>
@@ -286,8 +364,8 @@ function buildTableHtml(table) {
 }
 
 function buildChartsHtml(table) {
-  if (!table.weekField) {
-    return `<div class="empty-state">当前表没有周字段，跳过趋势图。</div>`;
+  if (!shouldShowChart(table)) {
+    return `<div class="empty-state">该模块按新模板不展示图表。</div>`;
   }
   const labels = table.rows.map((row) => row[table.weekField]);
   const chartFields = table.numericFields.slice(0, 4);
@@ -298,6 +376,20 @@ function buildChartsHtml(table) {
     const values = table.rows.map((row) => Number(row[field])).filter((value) => Number.isFinite(value));
     return buildLineChart(labels, values, field);
   }).join("");
+}
+
+function buildInstructionHtml(table) {
+  if (table.sheet !== "填写说明") return "";
+  return `
+    <div class="note-grid">
+      ${table.rows.map((row) => `
+        <div class="note-card">
+          <div class="note-title">${row["说明项"] || "说明"}</div>
+          <div class="note-value">${row["填写要求"] || "-"}</div>
+        </div>
+      `).join("")}
+    </div>
+  `;
 }
 
 function renderOverview() {
@@ -324,21 +416,37 @@ function renderDashboardContent() {
     dashboardContent.innerHTML = `<div class="empty-state">没有识别到任何数据表。</div>`;
     return;
   }
+
   dashboardContent.innerHTML = tables.map((table) => {
-    const weeklyMetrics = computeWeeklyMetrics(table);
-    const metricsHtml = weeklyMetrics.length
-      ? `<div class="kpi-grid">${weeklyMetrics.slice(0, 4).map((metric) => {
-          const change = formatChange(metric.delta, metric.field);
-          return `
-            <div class="kpi-card">
-              <div class="kpi-title">${metric.field}</div>
-              <div class="kpi-value">${formatValue(metric.latestValue, metric.field)}</div>
-              <div class="kpi-change ${change.cls}">${metric.week} ${change.text}</div>
-            </div>
-          `;
-        }).join("")}</div>`
-      : `<div class="empty-state">当前表没有周维度 KPI。</div>`;
-    const meta = table.weekField ? `已识别周字段：${table.weekField} · 共 ${table.rows.length} 行` : `未识别周字段 · 共 ${table.rows.length} 行`;
+    const weeklyMetrics = shouldShowKpi(table) ? computeWeeklyMetrics(table) : [];
+    const metricsHtml = !shouldShowKpi(table)
+      ? `<div class="empty-state">该模块按新模板不展示 KPI 卡片。</div>`
+      : weeklyMetrics.length
+        ? `<div class="kpi-grid">${weeklyMetrics.slice(0, 4).map((metric) => {
+            const change = formatChange(metric.delta, metric.field);
+            return `
+              <div class="kpi-card">
+                <div class="kpi-title">${metric.field}</div>
+                <div class="kpi-value">${formatValue(metric.latestValue, metric.field)}</div>
+                <div class="kpi-change ${change.cls}">${metric.week} ${change.text}</div>
+              </div>
+            `;
+          }).join("")}</div>`
+        : `<div class="empty-state">当前表没有适合展示的 KPI。</div>`;
+
+    const meta = table.weekField
+      ? `已识别周期字段：${table.weekField} · 共 ${table.rows.length} 行`
+      : `未识别周期字段 · 共 ${table.rows.length} 行`;
+
+    const instructionsHtml = table.sheet === "填写说明"
+      ? `
+        <div class="dashboard-block">
+          <h4 class="dashboard-block-title">填写提示</h4>
+          ${buildInstructionHtml(table)}
+        </div>
+      `
+      : "";
+
     return `
       <article class="dashboard-section">
         <div class="dashboard-section-header">
@@ -353,6 +461,7 @@ function renderDashboardContent() {
           <h4 class="dashboard-block-title">趋势图</h4>
           <div class="chart-grid">${buildChartsHtml(table)}</div>
         </div>
+        ${instructionsHtml}
         <div class="dashboard-block">
           <h4 class="dashboard-block-title">数据明细</h4>
           ${buildTableHtml(table)}
@@ -377,6 +486,29 @@ async function uploadWorkbook(file) {
   renderAll();
 }
 
+async function downloadScreenshot() {
+  screenshotButton.disabled = true;
+  statusText.textContent = "正在生成页面截图...";
+  try {
+    const canvas = await html2canvas(document.getElementById("captureTarget"), {
+      backgroundColor: "#f4f8fc",
+      scale: 2,
+      useCORS: true,
+      ignoreElements: (element) => element.classList?.contains("no-capture")
+    });
+    const link = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    link.download = `周维度经营看板截图-${stamp}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+    statusText.textContent = "页面截图已生成并开始下载";
+  } catch (error) {
+    statusText.textContent = `截图失败：${error.message}`;
+  } finally {
+    screenshotButton.disabled = false;
+  }
+}
+
 fileInput.addEventListener("change", async (event) => {
   const [file] = event.target.files || [];
   if (!file) return;
@@ -394,5 +526,7 @@ demoButton.addEventListener("click", () => {
   statusText.textContent = "已恢复示例数据";
   renderAll();
 });
+
+screenshotButton.addEventListener("click", downloadScreenshot);
 
 renderAll();

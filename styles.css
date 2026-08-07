@@ -87,6 +87,11 @@ button.secondary,
   color: var(--primary);
 }
 
+button.secondary[disabled] {
+  opacity: 0.7;
+  cursor: wait;
+}
+
 .upload-button input {
   display: none;
 }
@@ -222,14 +227,16 @@ button.secondary,
   gap: 16px;
 }
 
-.chart-card {
+.chart-card,
+.note-card {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 16px;
 }
 
-.chart-title {
+.chart-title,
+.note-title {
   margin: 0 0 12px;
   font-size: 16px;
   font-weight: 700;
@@ -239,6 +246,23 @@ button.secondary,
   margin-top: 8px;
   color: var(--muted);
   font-size: 12px;
+}
+
+.note-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.note-label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.note-value {
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 .table-wrapper {
@@ -263,6 +287,12 @@ th {
   background: #edf4fb;
   color: #284d79;
   font-weight: 700;
+}
+
+.wrap-text {
+  white-space: normal;
+  text-align: left;
+  line-height: 1.5;
 }
 
 tbody tr:nth-child(odd) td {
