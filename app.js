@@ -449,7 +449,7 @@ function buildChartsHtml(table) {
     return `<div class="empty-state">该模块按新模板不展示图表。</div>`;
   }
   const labels = table.rows.map((row) => row[table.weekField]);
-  if (table.sheet.includes("采购数据统计") || table.title.includes("采购数据统计")) {
+  if (table.sheet === "采购数据统计" || table.title === "采购数据统计" || table.title === "采购数据统计-1") {
     const contractField =
       findFieldByName(table.numericFields, "采购合同个数") ||
       findFieldByKeywords(table.numericFields, ["采购", "合同", "个数"]);
@@ -474,8 +474,6 @@ function buildChartsHtml(table) {
           "采购合同个数与采购单个数趋势"
         )
       );
-    } else {
-      console.warn("采购数据统计未识别到合并字段", table.numericFields);
     }
     remainingFields.slice(0, 2).forEach((field) => {
       const values = table.rows.map((row) => Number(row[field])).filter((value) => Number.isFinite(value));
