@@ -184,6 +184,16 @@ button.secondary[disabled] {
   gap: 16px;
 }
 
+.warehouse-kpi-layout {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.warehouse-kpi-card {
+  min-height: 132px;
+}
+
 .order-kpi-primary {
   grid-column: span 3;
   min-height: 132px;

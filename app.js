@@ -719,6 +719,34 @@ function buildMetricsSection(table) {
   if (!shouldShowKpi(table)) return "";
   const weeklyMetrics = computeWeeklyMetrics(table);
   if (!weeklyMetrics.length) return "";
+  if (table.sheet === "仓储单位产出" || table.title === "仓储单位产出-1" || table.title === "仓储单位产出") {
+    const grossProfitFields = [
+      findFieldByAliases(table.numericFields, ["主仓每平米毛利"]),
+      findFieldByAliases(table.numericFields, ["廊坊每平米毛利"]),
+      findFieldByAliases(table.numericFields, ["成都每平米毛利"]),
+      findFieldByAliases(table.numericFields, ["广州仓每平米毛利"])
+    ].filter(Boolean);
+    const metrics = grossProfitFields
+      .map((field) => weeklyMetrics.find((metric) => metric.field === field))
+      .filter(Boolean);
+    return `
+      <div class="dashboard-block">
+        <h4 class="dashboard-block-title">指标卡片</h4>
+        <div class="warehouse-kpi-layout">
+          ${metrics.map((metric) => {
+            const change = formatChange(metric.delta, metric.field);
+            return `
+              <div class="kpi-card warehouse-kpi-card">
+                <div class="kpi-title">${metric.field}</div>
+                <div class="kpi-value">${formatValue(metric.latestValue, metric.field)}</div>
+                <div class="kpi-change ${change.cls}">${metric.week} ${change.text}</div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  }
   if (isOrderTable(table)) {
     const amountFields = [
       findFieldByAliases(table.numericFields, ["新下单订单金额", "新下单金额"]),
