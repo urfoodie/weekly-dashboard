@@ -466,6 +466,27 @@ function computeWeeklyMetrics(table) {
   }).filter(Boolean);
 }
 
+function computeMetricsForFields(table, fields) {
+  if (!table || !table.weekField || table.rows.length < 1) return [];
+  const latest = table.rows[table.rows.length - 1];
+  const previous = table.rows.length > 1 ? table.rows[table.rows.length - 2] : null;
+  return fields.map((field) => {
+    if (!field) return null;
+    const latestValue = Number(latest[field]);
+    if (!Number.isFinite(latestValue)) return null;
+    const previousValue = previous ? Number(previous[field]) : null;
+    let delta = null;
+    if (Number.isFinite(previousValue)) {
+      if (String(field).includes("比例") || String(field).includes("率")) {
+        delta = latestValue - previousValue;
+      } else if (previousValue !== 0) {
+        delta = (latestValue - previousValue) / previousValue;
+      }
+    }
+    return { field, latestValue, delta, week: latest[table.weekField] };
+  }).filter(Boolean);
+}
+
 function buildOverviewMetrics(workbook) {
   return OVERVIEW_GROUPS.map((group) => {
     const table = workbook.tables.find((item) => item.sheet === group.sheet || item.title === group.sheet);
@@ -726,9 +747,7 @@ function buildMetricsSection(table) {
       findFieldByAliases(table.numericFields, ["成都每平米毛利"]),
       findFieldByAliases(table.numericFields, ["广州仓每平米毛利"])
     ].filter(Boolean);
-    const metrics = grossProfitFields
-      .map((field) => weeklyMetrics.find((metric) => metric.field === field))
-      .filter(Boolean);
+    const metrics = computeMetricsForFields(table, grossProfitFields);
     return `
       <div class="dashboard-block">
         <h4 class="dashboard-block-title">指标卡片</h4>
