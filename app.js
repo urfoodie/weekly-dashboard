@@ -344,6 +344,65 @@ function buildLineChart(labels, values, title) {
   `;
 }
 
+function buildMultiLineChart(labels, seriesList, title) {
+  if (!labels.length || !seriesList.length) {
+    return `<div class="chart-card"><h3 class="chart-title">${title}</h3><div class="empty-state">暂无可绘制数据</div></div>`;
+  }
+  const width = 420;
+  const height = 220;
+  const left = 42;
+  const right = 16;
+  const top = 18;
+  const bottom = 36;
+  const innerW = width - left - right;
+  const innerH = height - top - bottom;
+  const palette = ["#2d6fb8", "#0b9a53", "#d63b3b", "#8b5cf6"];
+
+  const allValues = seriesList.flatMap((series) => series.values).filter((value) => Number.isFinite(value));
+  const min = Math.min(...allValues);
+  const max = Math.max(...allValues);
+  const range = max - min || 1;
+
+  const lines = seriesList.map((series, seriesIndex) => {
+    const points = series.values.map((value, index) => {
+      const x = left + (innerW * index) / Math.max(series.values.length - 1, 1);
+      const y = top + innerH - ((value - min) / range) * innerH;
+      return { x, y, label: labels[index] };
+    });
+    const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+    return {
+      color: palette[seriesIndex % palette.length],
+      name: series.name,
+      points,
+      path
+    };
+  });
+
+  const yTicks = [0, 0.5, 1].map((ratio) => {
+    const y = top + innerH - ratio * innerH;
+    const tickValue = min + ratio * range;
+    return { y, text: tickValue.toLocaleString("zh-CN", { maximumFractionDigits: 2 }) };
+  });
+
+  return `
+    <div class="chart-card">
+      <h3 class="chart-title">${title}</h3>
+      <svg class="svg-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${title}">
+        ${yTicks.map((tick) => `<line class="grid" x1="${left}" y1="${tick.y}" x2="${width - right}" y2="${tick.y}"></line><text x="4" y="${tick.y + 4}">${tick.text}</text>`).join("")}
+        <line class="axis" x1="${left}" y1="${top}" x2="${left}" y2="${top + innerH}"></line>
+        <line class="axis" x1="${left}" y1="${top + innerH}" x2="${width - right}" y2="${top + innerH}"></line>
+        ${lines.map((line) => `<path d="${line.path}" fill="none" stroke="${line.color}" stroke-width="3"></path>`).join("")}
+        ${lines.map((line) => line.points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="#fff" stroke="${line.color}" stroke-width="2"></circle>`).join("")).join("")}
+        ${labels.map((label, index) => {
+          const x = left + (innerW * index) / Math.max(labels.length - 1, 1);
+          return `<text x="${x - 14}" y="${height - 12}">${label}</text>`;
+        }).join("")}
+      </svg>
+      <div class="chart-meta">${lines.map((line) => `<span style="margin-right:12px;color:${line.color};font-weight:700">${line.name}</span>`).join("")}</div>
+    </div>
+  `;
+}
+
 function buildTableHtml(table) {
   const headerHtml = table.headers.map((header) => {
     const wrapHeader = ["仓储单位产出", "库存周转分析", "采购数据统计"].includes(table.sheet);
@@ -372,6 +431,29 @@ function buildChartsHtml(table) {
     return `<div class="empty-state">该模块按新模板不展示图表。</div>`;
   }
   const labels = table.rows.map((row) => row[table.weekField]);
+  if (table.sheet === "采购数据统计") {
+    const combinedFields = ["采购合同个数", "采购单个数"];
+    const combinedAvailable = combinedFields.every((field) => table.numericFields.includes(field));
+    const remainingFields = table.numericFields.slice(0, 4).filter((field) => !combinedFields.includes(field));
+    const charts = [];
+    if (combinedAvailable) {
+      charts.push(
+        buildMultiLineChart(
+          labels,
+          combinedFields.map((field) => ({
+            name: field,
+            values: table.rows.map((row) => Number(row[field])).filter((value) => Number.isFinite(value))
+          })),
+          "采购合同个数 / 采购单个数"
+        )
+      );
+    }
+    remainingFields.slice(0, 2).forEach((field) => {
+      const values = table.rows.map((row) => Number(row[field])).filter((value) => Number.isFinite(value));
+      charts.push(buildLineChart(labels, values, field));
+    });
+    return charts.join("");
+  }
   const chartFields = table.numericFields.slice(0, 4);
   if (!chartFields.length) {
     return `<div class="empty-state">当前表没有适合绘图的数值字段。</div>`;
@@ -439,6 +521,7 @@ function renderOverview() {
     overviewGrid.innerHTML = `<div class="empty-state">当前没有识别到可汇总的周维度 KPI。</div>`;
     return;
   }
+  overviewGrid.className = "kpi-grid overview-grid";
   overviewGrid.innerHTML = metrics.map((metric) => {
     const change = formatChange(metric.delta, metric.field);
     return `

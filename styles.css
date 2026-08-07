@@ -146,6 +146,12 @@ button.secondary[disabled] {
   gap: 16px;
 }
 
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(180px, 1fr));
+  gap: 16px;
+}
+
 .kpi-card {
   background: linear-gradient(180deg, #f8fcff 0%, #eef7ef 100%);
   border: 1px solid #d8e8d8;
@@ -337,5 +343,9 @@ tbody tr:nth-child(odd) td {
   .hero {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .overview-grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
   }
 }
