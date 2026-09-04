@@ -2,7 +2,18 @@ const NON_CHART_SHEETS = new Set(["填写说明", "效率提升", "库存周转�
 const NON_KPI_SHEETS = new Set(["填写说明", "库存周转分析"]);
 const WRAP_COLUMNS = new Set(["本周进展", "填写要求", "备注说明"]);
 const OVERVIEW_GROUPS = [
-  { sheet: "采购数据统计", title: "采购数据统计", fields: ["采购合同个数", "采购单个数"] },
+  {
+    sheet: "采购数据统计",
+    title: "采购数据统计",
+    fields: [
+      "采购合同个数",
+      "采购单个数",
+      {
+        label: "采购金额（含税）环比",
+        aliases: ["采购金额（含税）环比", "采购金额含税环比", "采购金额（元）环比", "金额周环比"]
+      }
+    ]
+  },
   { sheet: "Key-SKU断货统计", title: "Key-SKU断货统计", fields: ["货号个数", "断货个数", "断货率"] },
   { sheet: "议价数据统计", title: "议价数据统计", fields: [["议价合计（元）", "议价合计"]] },
   { sheet: "订单数据", title: "订单数据", fields: [["新下单订单金额", "新下单金额"], ["待审核总订单金额", "待审核订单金额", "待审核总订单金额"]] }
@@ -511,7 +522,8 @@ function buildOverviewMetrics(workbook) {
     const latest = table.rows[table.rows.length - 1];
     const previous = table.rows.length > 1 ? table.rows[table.rows.length - 2] : null;
     const metrics = group.fields.map((fieldName) => {
-      const field = findFieldByAliases(table.numericFields, fieldName);
+      const fieldConfig = typeof fieldName === "object" && !Array.isArray(fieldName) ? fieldName : null;
+      const field = findFieldByAliases(table.numericFields, fieldConfig ? fieldConfig.aliases : fieldName);
       if (!field) return null;
       const latestValue = Number(latest[field]);
       if (!Number.isFinite(latestValue)) return null;
@@ -524,7 +536,7 @@ function buildOverviewMetrics(workbook) {
           delta = (latestValue - previousValue) / previousValue;
         }
       }
-      return { field, latestValue, delta };
+      return { field: fieldConfig?.label || field, latestValue, delta };
     }).filter(Boolean);
     if (!metrics.length) return null;
     return {
