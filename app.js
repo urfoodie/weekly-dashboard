@@ -220,9 +220,9 @@ demoWorkbook.tables = [
   }
 ];
 
-const PAGE_VERSION = "v2026.08.07-2";
+const PAGE_VERSION = "v2026.09.04-1";
 const TEMPLATE_VERSION = "v2026.08.07";
-const PAGE_UPDATED_AT = "2026-08-07 22:30";
+const PAGE_UPDATED_AT = "2026-09-04";
 const STORAGE_KEYS = {
   workbook: "weekly-dashboard:last-workbook:v1",
   meta: "weekly-dashboard:last-meta:v1"
