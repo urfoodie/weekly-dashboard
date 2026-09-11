@@ -220,12 +220,13 @@ demoWorkbook.tables = [
   }
 ];
 
-const PAGE_VERSION = "v2026.09.04-1";
-const TEMPLATE_VERSION = "v2026.08.07";
-const PAGE_UPDATED_AT = "2026-09-04";
+const PAGE_VERSION = "v2026.09.11-1";
+const TEMPLATE_VERSION = "v2026.09.11";
+const PAGE_UPDATED_AT = "2026-09-11";
+const DEFAULT_WORKBOOK_URL = "./周维度经营看板上传模板.xlsx?v=20260911-1";
 const STORAGE_KEYS = {
-  workbook: "weekly-dashboard:last-workbook:v1",
-  meta: "weekly-dashboard:last-meta:v1"
+  workbook: "weekly-dashboard:last-workbook:v2",
+  meta: "weekly-dashboard:last-meta:v2"
 };
 
 const state = {
@@ -403,9 +404,23 @@ function buildTableFromBlock(sheetName, title, block, blockIndex) {
     headerRowIndex = 1;
   }
 
+  const headerCounts = new Map();
+  const resolvedHeaders = [];
   const headers = nonEmptyRows[headerRowIndex].map((value, index) => {
     const text = value === undefined || value === null ? "" : String(value).trim();
-    return text || `字段${index + 1}`;
+    const header = text || `字段${index + 1}`;
+    const count = (headerCounts.get(header) || 0) + 1;
+    headerCounts.set(header, count);
+    if (count === 1) {
+      resolvedHeaders.push(header);
+      return header;
+    }
+
+    const monthHeader = resolvedHeaders.slice().reverse().find((item) => /^\d+月/.test(item));
+    const month = monthHeader?.match(/^(\d+月)/)?.[1];
+    const resolvedHeader = month ? `${month}${header}` : `${header}（第${count}列）`;
+    resolvedHeaders.push(resolvedHeader);
+    return resolvedHeader;
   });
 
   const rows = nonEmptyRows.slice(headerRowIndex + 1).map((rawRow) => {
@@ -1045,8 +1060,31 @@ async function uploadWorkbook(file) {
   };
   persistWorkbook(workbook, state.meta);
 
-  statusText.textContent = `已加载：${state.meta.workbookName}`;
+  statusText.textContent = `已加载：${state.meta.workbookName}（已自动保存在当前浏览器）`;
   renderAll();
+}
+
+async function loadDefaultWorkbook() {
+  try {
+    const response = await fetch(DEFAULT_WORKBOOK_URL, { cache: "no-store" });
+    if (!response.ok) throw new Error(`模板文件加载失败（${response.status}）`);
+    const buffer = await response.arrayBuffer();
+    const fileName = decodeURIComponent(DEFAULT_WORKBOOK_URL.split("/").pop().split("?")[0]);
+    const workbook = parseWorkbook({ name: fileName }, buffer);
+    if (!workbook.tables.length) throw new Error("模板中没有识别到可用数据表");
+
+    state.workbook = workbook;
+    state.meta = {
+      source: "default",
+      workbookName: workbook.workbookName,
+      uploadedAt: null
+    };
+    statusText.textContent = "已加载最新模板数据";
+    renderAll();
+  } catch (error) {
+    console.warn("Failed to load default workbook", error);
+    statusText.textContent = "最新模板数据加载失败，已显示备用示例数据";
+  }
 }
 
 async function downloadScreenshot() {
@@ -1086,10 +1124,11 @@ function initializeApp() {
       workbookName: demoWorkbook.workbookName,
       uploadedAt: null
     };
-    statusText.textContent = "已加载示例数据";
+    statusText.textContent = "正在加载最新模板数据...";
   }
 
   renderAll();
+  if (!restored) loadDefaultWorkbook();
 }
 
 fileInput.addEventListener("change", async (event) => {
