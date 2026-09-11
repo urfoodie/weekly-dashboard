@@ -224,6 +224,10 @@ const PAGE_VERSION = "v2026.09.11-1";
 const TEMPLATE_VERSION = "v2026.09.11";
 const PAGE_UPDATED_AT = "2026-09-11";
 const DEFAULT_WORKBOOK_URL = "./周维度经营看板上传模板.xlsx?v=20260911-1";
+const UPLOAD_PASSWORD = "111111";
+const SUPABASE_URL = "https://omhvssdqqexntunhchrr.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_23TCXCI5VvAPg6woStYyZw_lA3M2QRP";
+const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) || null;
 const STORAGE_KEYS = {
   workbook: "weekly-dashboard:last-workbook:v2",
   meta: "weekly-dashboard:last-meta:v2"
@@ -1001,13 +1005,15 @@ function restorePersistedWorkbook() {
 
     const metaRaw = localStorage.getItem(STORAGE_KEYS.meta);
     const meta = metaRaw ? JSON.parse(metaRaw) : {};
+    if (meta.templateVersion !== TEMPLATE_VERSION) return null;
 
     return {
       workbook,
       meta: {
         source: "upload",
         workbookName: meta.workbookName || workbook.workbookName || "最近一次上传",
-        uploadedAt: meta.uploadedAt || null
+        uploadedAt: meta.uploadedAt || null,
+        templateVersion: meta.templateVersion || TEMPLATE_VERSION
       }
     };
   } catch (error) {
@@ -1046,22 +1052,56 @@ function renderAll() {
   renderDashboardContent();
 }
 
-async function uploadWorkbook(file) {
+async function uploadWorkbook(file, password) {
   statusText.textContent = `正在解析：${file.name}`;
   const buffer = await file.arrayBuffer();
   const workbook = parseWorkbook(file, buffer);
   if (!workbook.tables.length) throw new Error("没有识别到可用数据表");
 
-  state.workbook = workbook;
-  state.meta = {
+  const meta = {
     source: "upload",
     workbookName: workbook.workbookName || file.name,
-    uploadedAt: new Date().toISOString()
+    uploadedAt: new Date().toISOString(),
+    templateVersion: TEMPLATE_VERSION
   };
+  if (!supabaseClient) throw new Error("云端连接未配置");
+
+  statusText.textContent = "正在保存到云端...";
+  const { error } = await supabaseClient.rpc("publish_dashboard_workbook", {
+    p_password: password,
+    p_workbook_name: meta.workbookName,
+    p_workbook: workbook
+  });
+  if (error) throw new Error(error.message || "云端保存失败");
+
+  state.workbook = workbook;
+  state.meta = meta;
   persistWorkbook(workbook, state.meta);
 
-  statusText.textContent = `已加载：${state.meta.workbookName}（已自动保存在当前浏览器）`;
+  statusText.textContent = `已加载：${state.meta.workbookName}（已保存到云端）`;
   renderAll();
+}
+
+async function loadCloudWorkbook() {
+  if (!supabaseClient) return null;
+  const { data, error } = await supabaseClient
+    .from("dashboard_workbooks")
+    .select("workbook_name, workbook, uploaded_at")
+    .eq("is_published", true)
+    .order("uploaded_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message || "云端数据读取失败");
+  if (!data?.workbook?.tables?.length) return null;
+  return {
+    workbook: data.workbook,
+    meta: {
+      source: "cloud",
+      workbookName: data.workbook_name || data.workbook.workbookName || "云端最新数据",
+      uploadedAt: data.uploaded_at || null,
+      templateVersion: TEMPLATE_VERSION
+    }
+  };
 }
 
 async function loadDefaultWorkbook() {
@@ -1077,7 +1117,8 @@ async function loadDefaultWorkbook() {
     state.meta = {
       source: "default",
       workbookName: workbook.workbookName,
-      uploadedAt: null
+      uploadedAt: null,
+      templateVersion: TEMPLATE_VERSION
     };
     statusText.textContent = "已加载最新模板数据";
     renderAll();
@@ -1122,20 +1163,39 @@ function initializeApp() {
     state.meta = {
       source: "demo",
       workbookName: demoWorkbook.workbookName,
-      uploadedAt: null
+      uploadedAt: null,
+      templateVersion: TEMPLATE_VERSION
     };
     statusText.textContent = "正在加载最新模板数据...";
   }
 
   renderAll();
-  if (!restored) loadDefaultWorkbook();
+  loadCloudWorkbook().then((cloud) => {
+    if (cloud) {
+      state.workbook = cloud.workbook;
+      state.meta = cloud.meta;
+      statusText.textContent = `已加载云端最新数据：${cloud.meta.workbookName}`;
+      renderAll();
+      return;
+    }
+    if (!restored) loadDefaultWorkbook();
+  }).catch((error) => {
+    console.warn("Failed to load cloud workbook", error);
+    if (!restored) loadDefaultWorkbook();
+  });
 }
 
 fileInput.addEventListener("change", async (event) => {
   const [file] = event.target.files || [];
   if (!file) return;
+  const password = window.prompt("请输入上传密码");
+  if (password !== UPLOAD_PASSWORD) {
+    statusText.textContent = "上传密码错误，未导入文件";
+    fileInput.value = "";
+    return;
+  }
   try {
-    await uploadWorkbook(file);
+    await uploadWorkbook(file, password);
   } catch (error) {
     statusText.textContent = `上传失败：${error.message}`;
   } finally {
